@@ -7,6 +7,7 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <script>
@@ -809,48 +810,42 @@
                 },
 
                 exportPNG() {
+                    const targetElement = document.querySelector('.matrix-bg');
                     const svgElement = document.getElementById('matrix-svg');
-                    if (!svgElement) return;
                     
-                    const serializer = new XMLSerializer();
-                    let source = serializer.serializeToString(svgElement);
-                    if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
-                        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-                    }
-                    // Ensure background color is set for the export
-                    source = source.replace('<svg', '<svg style="background-color: #f8fafc; font-family: Inter, sans-serif;"');
+                    if (!targetElement || !svgElement) return;
+                    
+                    this.notify("Preparing image export...");
 
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const img = new Image();
-                    
-                    // High resolution export
-                    const svgRect = svgElement.getBoundingClientRect();
-                    canvas.width = svgRect.width * 2; 
-                    canvas.height = svgRect.height * 2;
-                    
-                    const svgBlob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(svgBlob);
-                    
-                    img.onload = () => {
-                        ctx.scale(2, 2); 
-                        ctx.fillStyle = '#f8fafc';
-                        ctx.fillRect(0, 0, svgRect.width, svgRect.height);
-                        ctx.drawImage(img, 0, 0);
-                        URL.revokeObjectURL(url);
-                        
+                    // Temporarily lock SVG dimensions to pixels for html2canvas accuracy
+                    const rect = svgElement.getBoundingClientRect();
+                    svgElement.setAttribute('width', rect.width);
+                    svgElement.setAttribute('height', rect.height);
+
+                    window.html2canvas(targetElement, {
+                        scale: 2, // High resolution export
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    }).then(canvas => {
                         const pngUrl = canvas.toDataURL('image/png');
                         const downloadLink = document.createElement('a'); 
                         downloadLink.href = pngUrl; 
-                        downloadLink.download = 'MCDA-Matrix.png';
+                        downloadLink.download = 'ImpSci-Strategic-Matrix.png';
                         document.body.appendChild(downloadLink); 
                         downloadLink.click(); 
                         document.body.removeChild(downloadLink);
                         
-                        this.notify("Matrix exported as PNG");
-                    };
-                    
-                    img.src = url;
+                        // Restore flexible percentage dimensions
+                        svgElement.setAttribute('width', '100%');
+                        svgElement.setAttribute('height', '100%');
+                        
+                        this.notify("Matrix successfully exported!");
+                    }).catch(err => {
+                        console.error("Export error: ", err);
+                        this.notify("Error exporting image.");
+                        svgElement.setAttribute('width', '100%');
+                        svgElement.setAttribute('height', '100%');
+                    });
                 }
             }));
         });
